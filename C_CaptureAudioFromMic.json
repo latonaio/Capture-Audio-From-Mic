@@ -1,0 +1,37 @@
+{
+    "priorServiceName": null,
+    "priorDirectoryOfService": null,
+    "priorRuntime": {
+        "type": null,
+        "run": null
+    },
+    "priorSuccess": true,
+    "nextServiceList": [{
+        "nextServiceName": "CaptureAudioFromMic",
+        "nextDirectoryOfService": "/home/latona/poseidon/Runtime/capture-audio-from-mic",
+        "nextRuntime": {
+            "type": "python",
+            "run": "main.py"
+        },
+        "nextServiceDevice": "poseidon"
+    }],
+    "transactionCodes":{
+     "transactionCode0": "",
+     "transactionCode1": "",
+     "transactionCode2": ""
+    },
+    
+    "inputHeader": {
+        "type": null,
+        "content": null
+    },
+    "inputFileName": null,
+    "outputHeader": {
+        "type": "",
+        "content": ""
+    },
+    "outputFileName": "",
+    "startAt": "",
+    "finishAt": "",
+    "metadata": []
+}
