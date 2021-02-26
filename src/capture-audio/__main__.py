@@ -4,7 +4,8 @@
 
 import os
 
-from . import main_with_kanban, main_without_kanban, main_with_kanban_itr, send_kanbans_at_highspeed
+from . import main_with_kanban, main_without_kanban, main_with_kanban_itr, send_kanbans_at_highspeed, \
+    main_with_kanban_multiple
 
 KANBAN_MODE = os.environ.get("KANBAN_MODE", "main_without_kanban")
 
@@ -17,3 +18,5 @@ if __name__ == "__main__":
         main_with_kanban_itr()
     elif KANBAN_MODE == "send_kanbans_at_highspeed":
         send_kanbans_at_highspeed()
+    elif KANBAN_MODE == "main_with_kanban_multiple":
+        main_with_kanban_multiple()

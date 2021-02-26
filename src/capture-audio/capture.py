@@ -9,6 +9,8 @@ import os
 import sys
 import wave
 import pyaudio
+import time
+
 from aion.logger import lprint
 
 OUTPUT_DIR = "/var/lib/aion/Data/capture-audio-from-mic_1"
@@ -29,6 +31,8 @@ class CaptureAudioFromMic():
         self.ch = 1
         self.rec_time = rec_time
         self.audio = pyaudio.PyAudio()
+        self.frame = []
+        self.recording = False
 
         if self.audio.get_device_count() - 1 < device_index:
             lprint(self.audio.get_device_count(), device_index)
@@ -60,7 +64,9 @@ class CaptureAudioFromMic():
 
         with wave.open(outputFilePath, 'wb') as wav:
             wav.setnchannels(self.ch)
+            # ビット数
             wav.setsampwidth(self.audio.get_sample_size(self.fmt))
+            #サンプリング周波数
             wav.setframerate(self.sampling_rate)
             wav.writeframes(b''.join(frames))
 
@@ -68,6 +74,40 @@ class CaptureAudioFromMic():
         self.stream.close()
 
         return outputFilePath
+
+    def open_stream(self):
+        self.stream = self.audio.open(
+            format=self.fmt, channels=self.ch, rate=self.sampling_rate,
+            input=True, input_device_index=self.device_index,
+            frames_per_buffer=self.chunk, start=False)
+        self.recording = False
+
+    def start_recoding(self):
+        self.recording = True
+        # initialize frame
+        self.frame = []
+        self.stream.start_stream()
+        lprint("recording...")
+        while self.recording:
+            data = self.stream.read(self.chunk)
+            self.frame.append(data)
+
+    def complete_recording(self):
+        # 複数マイク間の同期を取るために、録音停止信号受信から5秒間のバッファを持たせる
+        time.sleep(5)
+        now_time = datetime.now().strftime("%Y%m%d%H%M%S")+"000"
+        output_file_name = now_time + str(self.device_index) + ".wav"
+        output_file_path = os.path.join(self.outputPath, output_file_name)
+        with wave.open(output_file_path, 'wb') as wav:
+            wav.setnchannels(self.ch)
+            # ビット数
+            wav.setsampwidth(self.audio.get_sample_size(self.fmt))
+            # サンプリング周波数
+            wav.setframerate(self.sampling_rate)
+            wav.writeframes(b''.join(self.frame))
+        self.stream.stop_stream()
+        self.stream.close()
+        self.recording = False
 
 
 def main():

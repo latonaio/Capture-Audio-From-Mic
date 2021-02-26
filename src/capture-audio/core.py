@@ -4,6 +4,7 @@
 
 import time
 import os
+import pyaudio
 
 from aion.microservice import main_decorator, Options
 from aion.kanban import Kanban
@@ -130,3 +131,54 @@ def send_kanbans_at_highspeed(opt: Options):
         )
         index = index + 1
         time.sleep(float(SLEEP_TIME))
+
+
+@main_decorator(SERVICE_NAME)
+def main_with_kanban_multiple(opt: Options):
+    lprint("start main_without_kanban_multiple()")
+    # get cache kanban
+    conn = opt.get_conn()
+    num = opt.get_number()
+    kanban = conn.get_one_kanban(SERVICE_NAME, num)
+    metadata = kanban.get_metadata()
+    lprint(metadata)
+    card_no = metadata['card_no']
+    device_no = metadata['device_no']
+    pa = pyaudio.PyAudio()
+    index = 0
+    for i in (24, pa.get_device_count()):
+        name = pa.get_device_info_by_index(i).get('name')
+        if name is not None:
+            if name.find(str(card_no)+","+str(device_no)) != -1:
+                index = i
+    capture_obj = CaptureAudioFromMic(index, sampling_rate=32000, rec_time=60)
+    capture_obj.open_stream()
+    for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
+        metadata = kanban.get_metadata()
+        status = metadata["status"]
+        if status == 0 and capture_obj.recording is False:
+            capture_obj.start_recoding()
+        elif status == 1 and capture_obj.recording is True:
+            capture_obj.complete_recording()
+        else:
+            lprint("cannot handle streaming")
+
+
+    ######### main function #############
+    # while True:
+    #     try:
+    #         captureObj = CaptureAudioFromMic(DEVICE_INDEX,
+    #                                          sampling_rate=32000, rec_time=60)
+    #         outputFilePath = captureObj.output_wave_file()
+    #     except Exception as e:
+    #         lprint_exception(e)
+    #         break
+    #
+    #     lprint("> Success: output audio (path: {})".format(outputFilePath))
+    #
+    #     # output after kanban
+    #     conn.output_kanban(
+    #         result=True,
+    #         connection_key="default",
+    #         metadata={"audio_file_path": outputFilePath},
+    #     )
