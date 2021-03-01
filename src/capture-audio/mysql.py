@@ -9,35 +9,9 @@ class MysqlManager(mysql.BaseMysqlAccess):
     def __init__(self):
         super().__init__("PeripheralDevice")
 
-    def update_microphone_state(self):
+    def update_microphone_state(self, card_no, device_no):
         sql = """
-            INSERT INTO microphones SET available_flg = true;
+            UPDATE microphones SET available_flg = true WHERE card_no = %(card_no)s AND device_no = %(device_no)s ;
             """
-        self.set_query(sql)
-
-    def update_down_device_state(self):
-        """
-            update device state in mysql which is not attached
-        """
-        now = datetime.now() - timedelta(seconds=1)
-        sql = """
-            UPDATE cameras
-            SET path = "", state = 0
-            WHERE timestamp < %(time)s
-            """
-        args = {"time": now.strftime('%Y-%m-%d %H:%M:%S')}
+        args = {"card_no": card_no, "device_no": device_no}
         self.set_query(sql, args)
-
-    def check_invalid_state(self):
-        """
-            update device state in mysql which is not attached
-        """
-        now = datetime.now() + timedelta(seconds=10)
-        sql = """
-            UPDATE cameras
-            SET path = "", state = 0
-            WHERE timestamp > %(time)s
-            """
-        args = {"time": now.strftime('%Y-%m-%d %H:%M:%S')}
-        self.set_query(sql, args)
-

@@ -5,11 +5,13 @@
 import time
 import os
 import pyaudio
+import signal
 
 from aion.microservice import main_decorator, Options
 from aion.kanban import Kanban
 from aion.logger import lprint, initialize_logger, lprint_exception
 from .capture import CaptureAudioFromMic
+from .mysql import MysqlManager
 
 
 SERVICE_NAME = os.environ.get("SERVICE", "capture-audio-from-mic")
@@ -18,6 +20,17 @@ DEVICE_NAME = os.environ.get("DEVICE_NAME")
 LOOP_COUNT = os.environ.get("LOOP_COUNT", "10")
 DEVICE_INDEX = os.environ.get("DEVICE_INDEX", 24)
 initialize_logger(SERVICE_NAME)
+
+
+class GracefulKiller:
+    kill_now = False
+
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self,signum, frame):
+        self.kill_now = True
 
 
 @main_decorator(SERVICE_NAME)
@@ -142,43 +155,38 @@ def main_with_kanban_multiple(opt: Options):
     kanban = conn.get_one_kanban(SERVICE_NAME, num)
     metadata = kanban.get_metadata()
     lprint(metadata)
-    card_no = metadata['card_no']
-    device_no = metadata['device_no']
+    card_no = int(metadata['card_no'])
+    device_no = int(metadata['device_no'])
     pa = pyaudio.PyAudio()
     index = 0
-    for i in (24, pa.get_device_count()):
+    for i in range(24, pa.get_device_count()):
         name = pa.get_device_info_by_index(i).get('name')
+        lprint(name)
         if name is not None:
-            if name.find(str(card_no)+","+str(device_no)) != -1:
+            if name.find("hw:"+str(card_no)+","+str(device_no)) != -1:
                 index = i
-    capture_obj = CaptureAudioFromMic(index, sampling_rate=32000, rec_time=60)
+                break
+    capture_obj = CaptureAudioFromMic(device_index=index, sampling_rate=32000, rec_time=60)
     capture_obj.open_stream()
-    for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
-        metadata = kanban.get_metadata()
-        status = metadata["status"]
-        if status == 0 and capture_obj.recording is False:
-            capture_obj.start_recoding()
-        elif status == 1 and capture_obj.recording is True:
-            capture_obj.complete_recording()
-        else:
-            lprint("cannot handle streaming")
-
-
-    ######### main function #############
-    # while True:
-    #     try:
-    #         captureObj = CaptureAudioFromMic(DEVICE_INDEX,
-    #                                          sampling_rate=32000, rec_time=60)
-    #         outputFilePath = captureObj.output_wave_file()
-    #     except Exception as e:
-    #         lprint_exception(e)
-    #         break
-    #
-    #     lprint("> Success: output audio (path: {})".format(outputFilePath))
-    #
-    #     # output after kanban
-    #     conn.output_kanban(
-    #         result=True,
-    #         connection_key="default",
-    #         metadata={"audio_file_path": outputFilePath},
-    #     )
+    try:
+        with MysqlManager() as db:
+            db.update_microphone_state(card_no, device_no)
+            db.commit_query()
+    except Exception as e:
+        lprint(e)
+    gk = GracefulKiller()
+    while not gk.kill_now:
+        try:
+            for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
+                metadata = kanban.get_metadata()
+                status = metadata["status"]
+                if status == 0 and capture_obj.recording is False:
+                    capture_obj.start_recoding()
+                elif status == 1 and capture_obj.recording is True:
+                    capture_obj.complete_recording()
+                else:
+                    lprint("cannot handle streaming")
+        except Exception as e:
+            lprint(e)
+        finally:
+            lprint("finish")
