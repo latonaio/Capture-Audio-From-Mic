@@ -6,6 +6,7 @@ import time
 import os
 import pyaudio
 import signal
+from threading import (Event, Thread)
 
 from aion.microservice import main_decorator, Options
 from aion.kanban import Kanban
@@ -158,6 +159,7 @@ def main_with_kanban_multiple(opt: Options):
     card_no = int(metadata['card_no'])
     device_no = int(metadata['device_no'])
     pa = pyaudio.PyAudio()
+    is_running = False
     index = 0
     for i in range(24, pa.get_device_count()):
         name = pa.get_device_info_by_index(i).get('name')
@@ -174,19 +176,20 @@ def main_with_kanban_multiple(opt: Options):
             db.commit_query()
     except Exception as e:
         lprint(e)
-    gk = GracefulKiller()
-    while not gk.kill_now:
-        try:
-            for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
-                metadata = kanban.get_metadata()
-                status = metadata["status"]
-                if status == 0 and capture_obj.recording is False:
-                    capture_obj.start_recoding()
-                elif status == 1 and capture_obj.recording is True:
-                    capture_obj.complete_recording()
-                else:
-                    lprint("cannot handle streaming")
-        except Exception as e:
-            lprint(e)
-        finally:
-            lprint("finish")
+    # gk = GracefulKiller()
+    try:
+        for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
+            metadata = kanban.get_metadata()
+            status = metadata["status"]
+            lprint("get kanban", status)
+            if status == 0 and is_running is False:
+                recoding_thread = Thread(target=capture_obj.start_recoding())
+                recoding_thread.start()
+                is_running = True
+            elif status == 1 and is_running is True:
+                capture_obj.complete_recording()
+                is_running = False
+            else:
+                lprint("cannot handle streaming")
+    except Exception as e:
+        lprint(e)
