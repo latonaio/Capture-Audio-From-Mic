@@ -13,6 +13,8 @@ import time
 from threading import (Event, Thread)
 
 from aion.logger import lprint
+from .mysql import MysqlManager
+
 
 OUTPUT_DIR = "/var/lib/aion/Data/capture-audio-from-mic_1"
 

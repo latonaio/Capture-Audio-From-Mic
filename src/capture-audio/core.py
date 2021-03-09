@@ -7,6 +7,7 @@ import os
 import pyaudio
 import signal
 from threading import (Event, Thread)
+from retry import retry
 
 from aion.microservice import main_decorator, Options
 from aion.kanban import Kanban
@@ -21,17 +22,6 @@ DEVICE_NAME = os.environ.get("DEVICE_NAME")
 LOOP_COUNT = os.environ.get("LOOP_COUNT", "10")
 DEVICE_INDEX = os.environ.get("DEVICE_INDEX", 24)
 initialize_logger(SERVICE_NAME)
-
-
-class GracefulKiller:
-    kill_now = False
-
-    def __init__(self):
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    def exit_gracefully(self,signum, frame):
-        self.kill_now = True
 
 
 @main_decorator(SERVICE_NAME)
@@ -147,19 +137,9 @@ def send_kanbans_at_highspeed(opt: Options):
         time.sleep(float(SLEEP_TIME))
 
 
-@main_decorator(SERVICE_NAME)
-def main_with_kanban_multiple(opt: Options):
-    lprint("start main_without_kanban_multiple()")
-    # get cache kanban
-    conn = opt.get_conn()
-    num = opt.get_number()
-    kanban = conn.get_one_kanban(SERVICE_NAME, num)
-    metadata = kanban.get_metadata()
-    lprint(metadata)
-    card_no = int(metadata['card_no'])
-    device_no = int(metadata['device_no'])
+@retry(exceptions=OSError, tries=5, delay=1)
+def open_streaming_to_mic(card_no, device_no):
     pa = pyaudio.PyAudio()
-    is_running = False
     index = 0
     for i in range(24, pa.get_device_count()):
         name = pa.get_device_info_by_index(i).get('name')
@@ -170,25 +150,42 @@ def main_with_kanban_multiple(opt: Options):
                 break
     capture_obj = CaptureAudioFromMic(device_index=index, sampling_rate=32000, rec_time=60)
     capture_obj.open_stream()
+    return capture_obj
+
+
+@main_decorator(SERVICE_NAME)
+def main_with_kanban_multiple(opt: Options):
+    lprint("start main_without_kanban_multiple()")
+    is_running = False
+    # get cache kanban
+    conn = opt.get_conn()
+    num = opt.get_number()
+    kanban = conn.get_one_kanban(SERVICE_NAME, num)
+    metadata = kanban.get_metadata()
+    card_no = int(metadata['card_no'])
+    device_no = int(metadata['device_no'])
+    lprint(card_no, device_no)
+    capture_obj = open_streaming_to_mic(card_no, device_no)
+    lprint("stream opened")
     try:
         with MysqlManager() as db:
-            db.update_microphone_state(card_no, device_no)
+            db.update_microphone_state(card_no, device_no, True)
             db.commit_query()
     except Exception as e:
         lprint(e)
-    # gk = GracefulKiller()
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
-            status = metadata["status"]
+            status = int(metadata["status"])
             lprint("get kanban", status)
             if status == 0 and is_running is False:
-                recoding_thread = Thread(target=capture_obj.start_recoding())
+                recoding_thread = Thread(target=capture_obj.start_recoding)
                 recoding_thread.start()
                 is_running = True
             elif status == 1 and is_running is True:
                 capture_obj.complete_recording()
                 is_running = False
+                capture_obj.open_stream()
             else:
                 lprint("cannot handle streaming")
     except Exception as e:
