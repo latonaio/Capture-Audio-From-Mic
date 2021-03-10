@@ -13,7 +13,7 @@ from aion.microservice import main_decorator, Options
 from aion.kanban import Kanban
 from aion.logger import lprint, initialize_logger, lprint_exception
 from .capture import CaptureAudioFromMic
-from .mysql import MysqlManager
+from .mysql import (MysqlManager, MicStatus)
 
 
 SERVICE_NAME = os.environ.get("SERVICE", "capture-audio-from-mic")
@@ -169,7 +169,7 @@ def main_with_kanban_multiple(opt: Options):
     lprint("stream opened")
     try:
         with MysqlManager() as db:
-            db.update_microphone_state(card_no, device_no, True)
+            db.update_microphone_state(card_no, device_no, MicStatus('active'), num)
             db.commit_query()
     except Exception as e:
         lprint(e)
@@ -178,6 +178,11 @@ def main_with_kanban_multiple(opt: Options):
             metadata = kanban.get_metadata()
             status = int(metadata["status"])
             lprint("get kanban", status)
+            if capture_obj.stream.is_stopped():
+                with MysqlManager() as db:
+                    db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
+                    db.commit_query()
+                lprint("stream is unavailable.")
             if status == 0 and is_running is False:
                 recoding_thread = Thread(target=capture_obj.start_recoding)
                 recoding_thread.start()
