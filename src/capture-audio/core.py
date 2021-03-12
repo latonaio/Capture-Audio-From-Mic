@@ -173,16 +173,13 @@ def main_with_kanban_multiple(opt: Options):
             db.commit_query()
     except Exception as e:
         lprint(e)
+    check_mic_thread = Thread(target=check_mic_connection, args=(capture_obj, card_no, device_no, num))
+    check_mic_thread.start()
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
             status = int(metadata["status"])
             lprint("get kanban", status)
-            if capture_obj.stream.is_stopped():
-                with MysqlManager() as db:
-                    db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
-                    db.commit_query()
-                lprint("stream is unavailable.")
             if status == 0 and is_running is False:
                 recoding_thread = Thread(target=capture_obj.start_recoding)
                 recoding_thread.start()
@@ -195,3 +192,12 @@ def main_with_kanban_multiple(opt: Options):
                 lprint("cannot handle streaming")
     except Exception as e:
         lprint(e)
+
+
+def check_mic_connection(capture_obj: CaptureAudioFromMic, card_no, device_no, num):
+    while True:
+        if capture_obj.stream.is_stopped():
+            with MysqlManager() as db:
+                db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
+                db.commit_query()
+            lprint("stream is unavailable.")
