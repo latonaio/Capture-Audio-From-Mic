@@ -23,6 +23,8 @@ LOOP_COUNT = os.environ.get("LOOP_COUNT", "10")
 DEVICE_INDEX = os.environ.get("DEVICE_INDEX", 24)
 initialize_logger(SERVICE_NAME)
 
+START_REC = 0
+STOP_REC = 1
 
 @main_decorator(SERVICE_NAME)
 def main_with_kanban(opt: Options):
@@ -180,11 +182,11 @@ def main_with_kanban_multiple(opt: Options):
             metadata = kanban.get_metadata()
             status = int(metadata["status"])
             lprint("get kanban", status)
-            if status == 0 and is_running is False:
+            if status == START_REC and is_running is False:
                 recoding_thread = Thread(target=capture_obj.start_recoding)
                 recoding_thread.start()
                 is_running = True
-            elif status == 1 and is_running is True:
+            elif status == STOP_REC and is_running is True:
                 capture_obj.complete_recording()
                 is_running = False
                 capture_obj.open_stream()
@@ -200,4 +202,3 @@ def check_mic_connection(capture_obj: CaptureAudioFromMic, card_no, device_no, n
             with MysqlManager() as db:
                 db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
                 db.commit_query()
-            lprint("stream is unavailable.")
