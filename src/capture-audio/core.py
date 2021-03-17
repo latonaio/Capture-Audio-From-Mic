@@ -175,8 +175,6 @@ def main_with_kanban_multiple(opt: Options):
             db.commit_query()
     except Exception as e:
         lprint(e)
-    check_mic_thread = Thread(target=check_mic_connection, args=(capture_obj, card_no, device_no, num))
-    check_mic_thread.start()
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
@@ -198,7 +196,7 @@ def main_with_kanban_multiple(opt: Options):
 
 def check_mic_connection(capture_obj: CaptureAudioFromMic, card_no, device_no, num):
     while True:
-        if capture_obj.stream.is_stopped():
+        if not capture_obj.stream.is_active():
             with MysqlManager() as db:
                 db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
                 db.commit_query()
