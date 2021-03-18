@@ -25,6 +25,7 @@ initialize_logger(SERVICE_NAME)
 
 START_REC = 0
 STOP_REC = 1
+OPEN_STREAM = 2
 
 @main_decorator(SERVICE_NAME)
 def main_with_kanban(opt: Options):
@@ -159,35 +160,45 @@ def open_streaming_to_mic(card_no, device_no):
 def main_with_kanban_multiple(opt: Options):
     lprint("start main_without_kanban_multiple()")
     is_running = False
+    is_stream_open = False
     # get cache kanban
     conn = opt.get_conn()
     num = opt.get_number()
-    kanban = conn.get_one_kanban(SERVICE_NAME, num)
-    metadata = kanban.get_metadata()
-    card_no = int(metadata['card_no'])
-    device_no = int(metadata['device_no'])
-    lprint(card_no, device_no)
-    capture_obj = open_streaming_to_mic(card_no, device_no)
-    lprint("stream opened")
-    try:
-        with MysqlManager() as db:
-            db.update_microphone_state(card_no, device_no, MicStatus('active'), num)
-            db.commit_query()
-    except Exception as e:
-        lprint(e)
+    capture_obj = None
+    card_no = 0
+    device_no = 0
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
             status = int(metadata["status"])
             lprint("get kanban", status)
             if status == START_REC and is_running is False:
+                if capture_obj is None:
+                    return
                 recoding_thread = Thread(target=capture_obj.start_recoding)
                 recoding_thread.start()
                 is_running = True
             elif status == STOP_REC and is_running is True:
+                if capture_obj is None:
+                    return
                 capture_obj.complete_recording()
                 is_running = False
+                # is_stream_open = False
                 capture_obj.open_stream()
+            elif status == OPEN_STREAM:
+                if capture_obj is None:
+                    card_no = int(metadata['card_no'])
+                    device_no = int(metadata['device_no'])
+                    lprint(card_no, device_no)
+                    capture_obj = open_streaming_to_mic(card_no, device_no)
+                    # is_stream_open = True
+                    lprint("stream opened")
+                try:
+                    with MysqlManager() as db:
+                        db.update_microphone_state(card_no, device_no, MicStatus('active'), num)
+                        db.commit_query()
+                except Exception as e:
+                    lprint(e)
             else:
                 lprint("cannot handle streaming")
     except Exception as e:

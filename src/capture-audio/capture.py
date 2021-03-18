@@ -36,6 +36,7 @@ class CaptureAudioFromMic():
         self.audio = pyaudio.PyAudio()
         self.frame = []
         self.event = Event()
+        self.is_stream_open = False
 
         if self.audio.get_device_count() - 1 < device_index:
             lprint(self.audio.get_device_count(), device_index)
@@ -83,6 +84,7 @@ class CaptureAudioFromMic():
             format=self.fmt, channels=self.ch, rate=self.sampling_rate,
             input=True, input_device_index=self.device_index,
             frames_per_buffer=self.chunk, start=False)
+        self.is_stream_open = True
 
     def start_recoding(self):
         # initialize frame
@@ -111,6 +113,7 @@ class CaptureAudioFromMic():
             wav.writeframes(b''.join(self.frame))
         self.stream.stop_stream()
         self.stream.close()
+        self.is_stream_open = False
         lprint("recording complete.record file output to ",output_file_path)
 
 

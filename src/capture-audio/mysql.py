@@ -14,6 +14,7 @@ class MysqlManager(mysql.BaseMysqlAccess):
         Store device list to mysql
         This function will be deleted.
     """
+
     def __init__(self):
         super().__init__("PeripheralDevice")
 
@@ -21,5 +22,5 @@ class MysqlManager(mysql.BaseMysqlAccess):
         sql = """
             UPDATE microphones SET status = %(status)s, manager_pod_process_num = %(processNum)s WHERE card_no = %(card_no)s AND device_no = %(device_no)s ;
             """
-        args = {"card_no": card_no, "device_no": device_no, "status": status.value, "processNum":processNum}
+        args = {"card_no": card_no, "device_no": device_no, "status": status.value, "processNum": processNum}
         self.set_query(sql, args)
