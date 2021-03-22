@@ -20,7 +20,10 @@ class MysqlManager(mysql.BaseMysqlAccess):
 
     def update_microphone_state(self, card_no, device_no, status: MicStatus, processNum):
         sql = """
-            UPDATE microphones SET status = %(status)s, manager_pod_process_num = %(processNum)s WHERE card_no = %(card_no)s AND device_no = %(device_no)s ;
+            UPDATE microphones
+             SET status = %(status)s, manager_pod_process_num = %(processNum)s
+             WHERE card_no = %(card_no)s 
+             AND device_no = %(device_no)s ;
             """
         args = {"card_no": card_no, "device_no": device_no, "status": status.value, "processNum": processNum}
         self.set_query(sql, args)

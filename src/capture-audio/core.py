@@ -15,7 +15,6 @@ from aion.logger import lprint, initialize_logger, lprint_exception
 from .capture import CaptureAudioFromMic
 from .mysql import (MysqlManager, MicStatus)
 
-
 SERVICE_NAME = os.environ.get("SERVICE", "capture-audio-from-mic")
 SLEEP_TIME = os.environ.get("SLEEP_TIME", "0.5")
 DEVICE_NAME = os.environ.get("DEVICE_NAME")
@@ -27,6 +26,7 @@ START_REC = 0
 STOP_REC = 1
 OPEN_STREAM = 2
 
+
 @main_decorator(SERVICE_NAME)
 def main_with_kanban(opt: Options):
     lprint("start main_with_kanban()")
@@ -34,7 +34,6 @@ def main_with_kanban(opt: Options):
     conn = opt.get_conn()
     num = opt.get_number()
     kanban = conn.get_one_kanban(SERVICE_NAME, num)
-
 
     # get output data path
     data_path = kanban.get_data_path()
@@ -101,6 +100,7 @@ def main_with_kanban_itr(opt: Options):
     finally:
         pass
 
+
 @main_decorator(SERVICE_NAME)
 def send_kanbans_at_highspeed(opt: Options):
     lprint("start send_kanbans_at_highspeed()")
@@ -148,7 +148,7 @@ def open_streaming_to_mic(card_no, device_no):
         name = pa.get_device_info_by_index(i).get('name')
         lprint(name)
         if name is not None:
-            if name.find("hw:"+str(card_no)+","+str(device_no)) != -1:
+            if name.find("hw:" + str(card_no) + "," + str(device_no)) != -1:
                 index = i
                 break
     capture_obj = CaptureAudioFromMic(device_index=index, sampling_rate=32000, rec_time=60)
@@ -167,6 +167,8 @@ def main_with_kanban_multiple(opt: Options):
     capture_obj = None
     card_no = 0
     device_no = 0
+    aid = ''
+    kanban: Kanban = conn.set_kanban(SERVICE_NAME, num)
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
@@ -175,22 +177,38 @@ def main_with_kanban_multiple(opt: Options):
             if status == START_REC and is_running is False:
                 if capture_obj is None:
                     return
-                recoding_thread = Thread(target=capture_obj.start_recoding)
-                recoding_thread.start()
+                # recoding_thread = Thread(target=capture_obj.start_recoding)
+                # recoding_thread.start()
+                # is_running = True
+                aid = metadata["activity_id"]
+                capture_obj.start_recoding()
                 is_running = True
             elif status == STOP_REC and is_running is True:
                 if capture_obj is None:
                     return
-                capture_obj.complete_recording()
+                sample_width, frame_rate, output_path = capture_obj.complete_recording(aid)
+                conn.output_kanban(
+                    result=True,
+                    connection_key="default",
+                    metadata={
+                        "activity_id": aid,
+                        "card_no": card_no,
+                        "device_no": device_no,
+                        "sample_width": sample_width,
+                        "frame_rate": frame_rate,
+                        "audio_file_path": output_path
+                    },
+                )
                 is_running = False
-                # is_stream_open = False
-                capture_obj.open_stream()
             elif status == OPEN_STREAM:
                 if capture_obj is None:
                     card_no = int(metadata['card_no'])
                     device_no = int(metadata['device_no'])
                     lprint(card_no, device_no)
-                    capture_obj = open_streaming_to_mic(card_no, device_no)
+                    try:
+                        capture_obj = open_streaming_to_mic(card_no, device_no)
+                    except Exception as e:
+                        lprint(e)
                     # is_stream_open = True
                     lprint("stream opened")
                 try:
@@ -203,6 +221,8 @@ def main_with_kanban_multiple(opt: Options):
                 lprint("cannot handle streaming")
     except Exception as e:
         lprint(e)
+    finally:
+        pass
 
 
 def check_mic_connection(capture_obj: CaptureAudioFromMic, card_no, device_no, num):
