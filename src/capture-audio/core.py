@@ -168,7 +168,6 @@ def main_with_kanban_multiple(opt: Options):
     card_no = 0
     device_no = 0
     aid = ''
-    kanban: Kanban = conn.set_kanban(SERVICE_NAME, num)
     try:
         for kanban in conn.get_kanban_itr(SERVICE_NAME, num):
             metadata = kanban.get_metadata()
