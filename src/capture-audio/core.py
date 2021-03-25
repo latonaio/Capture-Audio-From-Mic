@@ -179,7 +179,7 @@ def main_with_kanban_multiple(opt: Options):
                 # recoding_thread = Thread(target=capture_obj.start_recoding)
                 # recoding_thread.start()
                 # is_running = True
-                aid = metadata["activity_id"]
+                aid = int(metadata["activity_id"])
                 capture_obj.start_recoding()
                 is_running = True
             elif status == STOP_REC and is_running is True:
@@ -208,6 +208,7 @@ def main_with_kanban_multiple(opt: Options):
                         capture_obj = open_streaming_to_mic(card_no, device_no)
                     except Exception as e:
                         lprint(e)
+                        raise e
                     # is_stream_open = True
                     lprint("stream opened")
                 try:
@@ -220,13 +221,11 @@ def main_with_kanban_multiple(opt: Options):
                 lprint("cannot handle streaming")
     except Exception as e:
         lprint(e)
-    finally:
-        pass
-
-
-def check_mic_connection(capture_obj: CaptureAudioFromMic, card_no, device_no, num):
-    while True:
-        if not capture_obj.stream.is_active():
+        try:
             with MysqlManager() as db:
                 db.update_microphone_state(card_no, device_no, MicStatus('disable'), num)
                 db.commit_query()
+        except Exception as e:
+            lprint(e)
+    finally:
+        pass
