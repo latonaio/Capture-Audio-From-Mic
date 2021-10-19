@@ -1,29 +1,21 @@
 # Capture-Audio-From-Mic
-Capture-Audio-From-Micは、音声録音ツールです。aion-core 上での動作を前提としています。  
-
-## 概要
-Capture-Audio-From-Micは、ホストに接続された録音デバイスを認識し、これから受取ったストリーミング音声データをwavファイルに変換します。  
-主に使用するモジュール、ライブラリーとして、`PyAudio`および`portaudio`が入っています。PyAudioは、`requirements.txt` にダウンロードするべきバージョンが記載されています。  
-Capture-Audio-From-Micには、通常のjobとして実行されるmain_without_kanbanと、pod上で運用することを前提としているmain_with_kanban_multipleが含まれています。
+Capture-Audio-From-Micは、ホストに接続された録音デバイスを認識し、これから受取ったストリーミング音声データをwavファイルに変換するマイクロサービスです。  
+主に使用するモジュール、ライブラリーとして、`PyAudio`および`portaudio`が入っています。PyAudioは、`requirements.txt` にダウンロードするべきバージョンが記載されています。    
+Capture-Audio-From-Micには、通常のjobとして実行されるmain_without_kanbanと、pod上で運用することを前提としているmain_with_kanban_multipleが含まれています。  
 
 ## 動作環境
-Capture-Audio-From-Micは、aion-core 上での動作を前提としており、下記動作環境が必要となります。
+Capture-Audio-From-Micは、aion-core 上での動作を前提としており、下記動作環境が必要となります。  
   
-- ARM CPU搭載のデバイス(NVIDIA Jetson シリーズ等)  
-
-- OS: Linux Ubuntu OS  
-
-- CPU: ARM64  
-
-- Kubernetes  
-
-- AION のリソース (詳しくは[aion-core](https://github.com/latonaio/aion-core)を御覧ください)
+-　OS: Linux Ubuntu OS  
+-　CPU: ARM/AMD/Intel  
+-　Kubernetes  
+-　AION のリソース   
   
   
-最低限スペック  
-- CPU: 2 core  
+最低限スペック    
+- CPU: 2 core    
+- memory: 4 GB    
 
-- memory: 4 GB  
 
 ## 録音設定
 ### main_without_kanban   
